@@ -1,8 +1,8 @@
-=== Quadcopter Wifi communication using an esp8266 ===
+### Quadcopter Wifi communication using an esp8266 ###
 
 This LUA code runs on an esp8266 running nodeMCU firmware. It is meant to communicate with an atmel328p based board over serial.
 
-=== Setup ===
+## Setup ##
 
 In this project I am using the esp8266 (esp03) wifi module. Pin connections are as follows:
     
@@ -19,7 +19,7 @@ For flashing:
 
     GPIO2 --> 3.3V
 
-=== Installation ===
+## Installation ##
 
 I am using ESPlorer v0.2.0 to communicate with the ESP8266 over serial. The following files must be uploaded to the board:
 
