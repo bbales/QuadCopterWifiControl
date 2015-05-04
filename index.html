@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <style>
+            body{
+                background-color: #2A2A2A;
+                margin: 0 0;
+                padding: 0 0;
+                overflow:hidden;
+                background: linear-gradient(to bottom, #2A2A2A 0%,#403A3A 100%);
+            }
+            canvas{
+                width:100%;
+                height:100%;
+            }
+        </style>
+    </head>
+    <body onload="init()">
+        <input type="button" onclick="location.reload();" style="position:absolute;z-index:1000">
+        <canvas id="controller"></canvas>
+        <script>
+
+        var canvas,ctx;
+        var controls = {
+            yaw : -1,
+            pitch : 128,
+            throttle : 0,
+            roll : 128
+        }
+
+        var rad = screen.height/3;
+
+        var pad1 = {};
+        var pad2 = {};
+
+        pad1.x = screen.width/2/2;
+        pad2.x = (screen.width/2/2)*3;
+        pad1.y = pad2.y = screen.height/2;
+
+        function init(){
+            canvas = document.getElementById('controller');
+            ctx = canvas.getContext('2d');
+            ctx.canvas.width  = screen.width;
+            ctx.canvas.height = screen.height;
+
+            canvas.addEventListener('touchend',function(e){
+                controls.roll = 128;
+                controls.pitch = 128;
+                controls.yaw = -1;
+            });
+
+            var handler = function(e){
+                e.preventDefault();
+                for(var i = 0; i < e.touches.length; i++){
+                    // console.log(e.touches)
+                    boundings(e.touches[i].pageX,e.touches[i].pageY);
+                }
+            }
+
+            canvas.addEventListener('touchstart',handler);
+            canvas.addEventListener('touchmove',handler);
+            
+            setInterval(draw,1000/24);
+        }
+
+        function boundings(x,y){
+            var coords = []; // x1,y1,x2,y2
+            var fns = [];
+
+            // Calibrate [0]
+            var coord = [screen.width/2 - screen.width/60 - 30,
+                        screen.height/15 - 30, screen.width/2 - screen.width/60 + screen.width/30 + 30, screen.height/15 + screen.width/30 + 30];
+            coords.push(coord);
+            fns.push("calibrate");
+
+            // yawLeft [1]
+            var coord = [pad1.x - rad, pad1.y - rad, pad1.x - 0.3*rad, pad1.y + rad];
+            coords.push(coord);
+            fns.push("yawLeft");
+
+            // yawRight [2]
+            var coord = [pad1.x + 0.3*rad, pad1.y - rad, pad1.x + rad, pad1.y + rad];
+            coords.push(coord);
+            fns.push("yawRight");
+
+            // throttle [3]
+            var coord = [pad1.x - 0.3*rad, pad1.y - rad, pad1.x + 0.3*rad, pad1.y + rad];
+            coords.push(coord);
+            fns.push("throttle");
+
+            // pad2 [4]
+            var coord = [pad2.x - rad - rad*0.2, pad2.y - rad, pad2.x + rad - rad*0.2, pad2.y + rad];
+            coords.push(coord);
+            fns.push("pad2Control");
+
+            for(var i=0; i < coords.length; i++){
+                if(within(x,y,coords[i])) window[fns[i]](x,y);
+            }
+        }
+
+
+        function within(x,y,coord){
+            if(x >= coord[0] && x <= coord[2] && y >= coord[1] && y <= coord[3]) return true;
+            return false;
+        }
+
+        function pad2Control(x,y){
+            var xv = 128 + (-127)*(pad2.x - x - rad*0.2)/rad;
+            var yv = 128 + 127*(pad2.y - y)/rad;
+            controls.pitch = Math.round(yv);
+            controls.roll = Math.round(xv);
+        }
+
+        function throttle(x,y){
+            var yv = 255 - 255*(-(pad1.y-rad-y)/(rad*2));
+            controls.throttle = Math.round(yv);
+            controls.yaw = -1;
+        }
+
+        function yawLeft(x,y){
+            controls.yaw = "left";
+        }
+
+        function yawRight(x,y){
+            controls.yaw = "right";
+        }
+
+        function calibrate(x,y){
+            if(controls.throttle != 0) return;
+
+            calibrating = 1;
+            var x = new XMLHttpRequest();
+
+            x.open("GET","http://192.168.4.1/calib:true",true);
+            x.timeout = 300;
+            x.send();
+
+            x.onreadystatechange=function()
+            {
+                if(x.readyState==4) calibrating=0
+            }
+        }
+
+        function draw(){
+            ctx.clearRect(0,0,screen.width,screen.height);
+            drawControls();
+            drawCurrent();
+        }
+
+        function drawCurrent(){
+            // left circle
+            ctx.beginPath();
+            ctx.arc(pad1.x,pad1.y+rad - ((controls.throttle)/255)*(2*rad), rad*0.2, 0, 2 * Math.PI, false);
+            ctx.fillStyle = '#B5B5B5';
+            ctx.fill();
+            ctx.stroke();
+
+            // left circle
+            ctx.beginPath();
+            ctx.arc(pad2.x-2*rad + ((controls.roll+127)/255)*(2*rad),pad2.y+2*rad - ((controls.pitch+127)/255)*(2*rad), rad*0.2, 0, 2 * Math.PI, false);
+            ctx.fillStyle = '#B5B5B5';
+            ctx.fill();
+            ctx.stroke();
+        }
+
+
+        function drawControls(){
+            ctx.setLineDash([2,6]);
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = '#BD3636';
+
+            // left circle
+            ctx.beginPath();
+            ctx.arc(pad1.x, pad1.y, rad, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fill();
+            ctx.stroke();
+
+            // right circle
+            ctx.beginPath();
+            ctx.arc(pad2.x, pad2.y, rad, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fill();
+            ctx.stroke();
+
+            // Dashed guide lines
+
+            ctx.beginPath();
+            ctx.moveTo(pad1.x-0.3*rad, pad1.y + rad*1.1);
+            ctx.lineTo(pad1.x-0.3*rad, pad1.y - rad*1.1);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(pad1.x+0.3*rad, pad1.y + rad*1.1);
+            ctx.lineTo(pad1.x+0.3*rad, pad1.y - rad*1.1);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(pad2.x-0.3*rad, pad2.y + rad*1.1);
+            ctx.lineTo(pad2.x-0.3*rad, pad2.y - rad*1.1);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(pad2.x+0.3*rad, pad2.y + rad*1.1);
+            ctx.lineTo(pad2.x+0.3*rad, pad2.y - rad*1.1);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(pad2.x- rad*1.1, pad2.y + rad*0.3);
+            ctx.lineTo(pad2.x+ rad*1.1, pad2.y + rad*0.3);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(pad2.x- rad*1.1, pad2.y - rad*0.3);
+            ctx.lineTo(pad2.x+ rad*1.1, pad2.y - rad*0.3);
+            ctx.stroke();
+
+            ctx.setLineDash([0]);
+
+            // Calibrate button
+            ctx.beginPath();
+            ctx.rect(screen.width/2 - screen.width/60, screen.height/15, screen.width/30, screen.width/30);
+            if(!calibrating){
+                ctx.fillStyle = '#FCF739';
+                ctx.strokeStyle = '#A8A66F';
+            }else{
+                ctx.fillStyle = '#FC9C39';
+                ctx.strokeStyle = '#997A2E';
+            }
+            ctx.fill();
+            ctx.lineWidth = screen.width/80;
+            ctx.stroke();
+
+            // Connected indicator
+            ctx.beginPath();
+            ctx.rect(screen.width/2 - screen.width/60, 3*screen.height/15, screen.width/30, screen.width/30);
+            if(connected){
+                ctx.fillStyle = '#43C643';
+                ctx.strokeStyle = '#2D6C34';
+            }else{
+                ctx.fillStyle = '#FC3939';
+                ctx.strokeStyle = '#892A2A';
+            }
+            ctx.fill();
+            ctx.lineWidth = screen.width/80;
+            ctx.stroke();
+        }
+
+        var xmlhttp = new XMLHttpRequest();
+        var check = new XMLHttpRequest();
+        var connected = 0;
+        var calibrating = 0;
+
+        setInterval(sendIt,1000/8);
+
+        function sendIt(){
+            var req = "throt:"+controls.throttle+",pitch:"+controls.pitch+",roll:"+controls.roll;
+            if(controls.yaw != -1){
+                req += ",yaw:"+controls.yaw;
+            }
+            console.log(req)
+            xmlhttp.open("GET","http://192.168.4.1/"+req,true);
+            xmlhttp.send();
+        }
+
+        function checkIt(){
+            check.open("GET","http://192.168.4.1/check",true);
+            check.timeout = 300;
+            check.send();
+        }
+
+        setInterval(checkIt,1000)
+
+        check.onreadystatechange=function()
+        {
+            if(check.readyState==4 && check.status==200)
+            {
+                connected=1;
+            }else if(check.readyState==4){
+                connected = 0;
+            }
+        }
+        </script>
+    </body>
+</html>

@@ -1,7 +1,7 @@
 -- @Author: bbales
 -- @Date:   2015-05-02 20:07:31
 -- @Last Modified by:   bbales
--- @Last Modified time: 2015-05-03 11:43:50
+-- @Last Modified time: 2015-05-03 17:54:54
 
 -- Read network configuration
 file.open("config.txt", "r")
@@ -44,17 +44,41 @@ srv:listen(80, function(conn)
     -- Handle requests
     conn:on("receive", function(conn, payload)
         local req = string.sub(payload, string.find(payload,'GET /')+5,string.find(payload,'HTTP')-2)
+        local isOpen = false
 
-        -- Multiplex requests
-        switchBox(req)
+        -- Sent listener, for chunking data
+        conn:on("sent", function(conn)
+            if not isOpen then
+            isOpen = true
+            file.open('index.html', 'r')
+            end
+            local data = file.read(1024) -- 1024 max
+            if data then
+                conn:send(data)
+            else
+                file.close()
+                conn:close()
+                conn = nil
+            end
+        end)
 
-        -- 
+        if req == "app" then
+            conn:send("HTTP/1.1 200 OK\r\n")
+            conn:send("Content-type: text/html\r\n")
+            conn:send("Connection: close\r\n\r\n")
+        elseif req == "check" then
+            conn:send("HTTP/1.1 200 OK\r\n")
+            conn:send("Content-type: text/html\r\n")
+            conn:send("Connection: close\r\n\r\n")    
+            conn:send("1")
+            conn:close()
+        else
+            -- Multiplex requests
+            switchBox(req)
 
-        -- returning data takes a significant amount of time.
-        -- conn:send('data')
-        
-        -- Clean up
-        req = nil
-        conn:close()
+            -- Clean up
+            req = nil
+            conn:close()
+        end
     end)
 end)

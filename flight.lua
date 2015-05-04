@@ -1,7 +1,7 @@
 -- @Author: bbales
 -- @Date:   2015-05-03 12:49:24
 -- @Last Modified by:   bbales
--- @Last Modified time: 2015-05-03 12:58:03
+-- @Last Modified time: 2015-05-03 23:00:25
 
 function yaw(value)
     if value == 'left' or value == 'right' then
@@ -28,7 +28,7 @@ function throttle(value)
 end
 
 function roll(value)
-    if value == 'left' or value == 'right' then
+    if tonumber(value) < 256 and tonumber(value) >= 0 then
         print('roll'..' '..value)
     else
         return commError(6,'Invalid roll value')
